@@ -45,9 +45,9 @@ class Sidekick:
 
     async def setup(self):
         self.tools, self.async_browser, self.playwright = await playwright_tools()
-        self.tools += other_tools()
-        self.worker.setup(tools=self.tools)
-        self.evaluator.setup()
+        self.tools += await other_tools()
+        await self.worker.setup(tools=self.tools)
+        await self.evaluator.setup()
         await self.build_graph()
 
     async def run_super_step(self, message, success_criteria, history):

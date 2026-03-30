@@ -22,7 +22,7 @@ class Evaluator:
     def __init__(self):
         self.evaluator_llm_with_output = None
 
-    def setup(self):
+    async def setup(self):
         self.evaluator_llm_with_output = ChatOpenAI(model=EVALUATOR_MODEL).with_structured_output(schema=EvaluatorOutput)
 
     def format_conversation(self, messages: List[Any]) -> str:
@@ -56,7 +56,7 @@ Also, decide if more user input is required, either because the assistant has a 
 The Assistant has access to a tool to write files. If the Assistant says they have written a file, then you can assume they have done so.
 Overall you should give the Assistant the benefit of the doubt if they say they've done something. But you should reject if you feel that more work should go into this."""
         
-        if state["feedback_on_work"]:
+        if state.get("feedback_on_work"):
             user_message += f"\n\nAlso, note that in a prior attempt from the Assistant, you provided this feedback: {state["feedback_on_work"]}\n"
             user_message += "If you're seeing the Assistant repeating the same mistakes, then consider responding that user input is required."
 

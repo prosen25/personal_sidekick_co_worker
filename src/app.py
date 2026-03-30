@@ -12,8 +12,8 @@ class App:
         return self.sidekick
     
     async def process_message(self, sidekick, message, success_criteria, history):
-        result = sidekick.run_super_step(message=message, success_criteria=success_criteria, history=history)
-        return result, sidekick
+        result = await sidekick.run_super_step(message=message, success_criteria=success_criteria, history=history)
+        return sidekick, result
     
     async def reset(self):
         new_sidekick = Sidekick()
@@ -34,7 +34,7 @@ class App:
             sidekick = gr.State(delete_callback=self.free_resurces)
 
             with gr.Row():
-                chatbot = gr.Chatbot(label="Sidekick", height=300, type="messages")
+                chatbot = gr.Chatbot(label="Sidekick", height=300)
             with gr.Group():
                 with gr.Row():
                     message = gr.Textbox(show_label=False, placeholder="Your request to the Sidekick")
