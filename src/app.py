@@ -1,4 +1,4 @@
-from sidekick import Sidekick
+from .sidekick import Sidekick
 
 import gradio as gr
 

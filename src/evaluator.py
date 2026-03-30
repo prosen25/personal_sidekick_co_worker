@@ -1,12 +1,12 @@
 import os
-from typing import Any, Dict, List, TypedDict
+from typing import Any, Dict, List
 
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-from state import State
+from .state import State
 
 
 load_dotenv(override=True)
@@ -18,7 +18,7 @@ class EvaluatorOutput(BaseModel):
     success_criteria_met: bool = Field(description="Whether the success criteria have been met")
     user_input_needed: bool = Field(description="True is more information is needed from the user, or clarification or the assistant is stuck")
 
-class Evaluator(TypedDict):
+class Evaluator:
     def __init__(self):
         self.evaluator_llm_with_output = None
 
@@ -26,7 +26,7 @@ class Evaluator(TypedDict):
         self.evaluator_llm_with_output = ChatOpenAI(model=EVALUATOR_MODEL).with_structured_output(schema=EvaluatorOutput)
 
     def format_conversation(self, messages: List[Any]) -> str:
-        conversation = "Conversatoin history:\n\n"
+        conversation = "Conversation history:\n\n"
         for message in messages:
             if isinstance(message, HumanMessage):
                 conversation += f"User: {message.content}\n"
@@ -74,7 +74,7 @@ Overall you should give the Assistant the benefit of the doubt if they say they'
         return new_state
     
     def route_based_on_evaluation(self, state: State) -> str:
-        if state["success_criteria"] or state["user_input_needed"]:
+        if state["success_criteria_met"] or state["user_input_needed"]:
             return "END"
         else:
             return "worker"

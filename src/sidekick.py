@@ -6,10 +6,10 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.memory import MemorySaver
 
-from evaluator import Evaluator
-from sidekick_tools import other_tools, playwright_tools
-from state import State
-from worker import Worker
+from .evaluator import Evaluator
+from .sidekick_tools import other_tools, playwright_tools
+from .state import State
+from .worker import Worker
 
 
 load_dotenv(override=True)
