@@ -86,8 +86,9 @@ class TestEvaluatorInit:
 class TestEvaluatorSetup:
     """Tests for Evaluator.setup method"""
 
+    @pytest.mark.asyncio
     @patch("src.evaluator.ChatOpenAI")
-    def test_setup(self, mock_chat_openai):
+    async def test_setup(self, mock_chat_openai):
         """Test setup method"""
         mock_llm = MagicMock()
         mock_llm_with_output = MagicMock()
@@ -95,26 +96,28 @@ class TestEvaluatorSetup:
         mock_chat_openai.return_value = mock_llm
         
         evaluator = Evaluator()
-        evaluator.setup()
+        await evaluator.setup()
         
         mock_chat_openai.assert_called_once()
         mock_llm.with_structured_output.assert_called_once_with(schema=EvaluatorOutput)
         assert evaluator.evaluator_llm_with_output == mock_llm_with_output
 
+    @pytest.mark.asyncio
     @patch("src.evaluator.ChatOpenAI")
-    def test_setup_creates_chat_openai(self, mock_chat_openai):
+    async def test_setup_creates_chat_openai(self, mock_chat_openai):
         """Test that setup creates ChatOpenAI instance"""
         mock_llm = MagicMock()
         mock_llm.with_structured_output.return_value = MagicMock()
         mock_chat_openai.return_value = mock_llm
         
         evaluator = Evaluator()
-        evaluator.setup()
+        await evaluator.setup()
         
         mock_chat_openai.assert_called_once()
 
+    @pytest.mark.asyncio
     @patch("src.evaluator.ChatOpenAI")
-    def test_setup_multiple_times(self, mock_chat_openai):
+    async def test_setup_multiple_times(self, mock_chat_openai):
         """Test setup can be called multiple times"""
         mock_llm = MagicMock()
         mock_llm_with_output = MagicMock()
@@ -122,8 +125,8 @@ class TestEvaluatorSetup:
         mock_chat_openai.return_value = mock_llm
         
         evaluator = Evaluator()
-        evaluator.setup()
-        evaluator.setup()
+        await evaluator.setup()
+        await evaluator.setup()
         
         # Should be able to call setup multiple times
         assert mock_chat_openai.call_count == 2

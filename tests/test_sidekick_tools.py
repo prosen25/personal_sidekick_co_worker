@@ -35,7 +35,8 @@ class TestPushNotification:
                 "token": "test_token",
                 "user": "test_user",
                 "message": "Test message"
-            }
+            },
+            timeout=10
         )
 
     @patch.dict(os.environ, {
@@ -72,12 +73,8 @@ class TestPushNotification:
         """Test push notification with missing environment variables"""
         result = push("Test message")
         
-        assert result == "success"
-        # Should still call with empty token and user
-        mock_post.assert_called_once()
-        call_args = mock_post.call_args
-        assert call_args[1]["data"]["token"] == ""
-        assert call_args[1]["data"]["user"] == ""
+        assert "not configured" in result
+        mock_post.assert_not_called()
 
     @patch.dict(os.environ, {
         "PUSHOVER_TOKEN": "test_token",
@@ -130,8 +127,8 @@ class TestPlaywrightTools:
     async def test_playwright_tools(self, mock_async_pw):
         """Test getting playwright tools"""
         # Setup mocks
-        mock_playwright = AsyncMock()
-        mock_browser = AsyncMock()
+        mock_playwright = MagicMock()
+        mock_browser = MagicMock()
         mock_toolkit = MagicMock()
         mock_tools = [MagicMock(), MagicMock()]
         
@@ -150,8 +147,8 @@ class TestPlaywrightTools:
     @patch("src.sidekick_tools.async_playwright")
     async def test_playwright_tools_returns_three_items(self, mock_async_pw):
         """Test that playwright_tools returns three items"""
-        mock_playwright = AsyncMock()
-        mock_browser = AsyncMock()
+        mock_playwright = MagicMock()
+        mock_browser = MagicMock()
         mock_toolkit = MagicMock()
         mock_toolkit.get_tools.return_value = []
         
@@ -168,7 +165,7 @@ class TestOtherTools:
     """Tests for other tools consolidation"""
 
     @pytest.mark.asyncio
-    @patch.dict(os.environ, {"GOOGLE_SERPER_API_KEY": "test_key"})
+    @patch.dict(os.environ, {"SERPER_API_KEY": "test_key"})
     @patch("src.sidekick_tools.PythonREPLTool")
     @patch("src.sidekick_tools.WikipediaQueryRun")
     @patch("src.sidekick_tools.WikipediaAPIWrapper")
@@ -202,6 +199,7 @@ class TestOtherTools:
         assert any('google_search' in str(name) or name == 'google_search_tool' for name in tool_names)
 
     @pytest.mark.asyncio
+    @patch.dict(os.environ, {"SERPER_API_KEY": "test_key"})
     @patch("src.sidekick_tools.PythonREPLTool")
     @patch("src.sidekick_tools.WikipediaQueryRun")
     @patch("src.sidekick_tools.WikipediaAPIWrapper")

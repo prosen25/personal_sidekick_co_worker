@@ -97,11 +97,11 @@ class TestProcessMessage:
     async def test_process_message(self, mock_sidekick):
         """Test process_message method"""
         mock_sidekick_instance = MagicMock()
-        mock_sidekick_instance.run_super_step = MagicMock(return_value=["result"])
+        mock_sidekick_instance.run_super_step = AsyncMock(return_value=["result"])
         mock_sidekick.return_value = mock_sidekick_instance
         
         app = App()
-        result, returned_sidekick = await app.process_message(
+        returned_sidekick, result = await app.process_message(
             mock_sidekick_instance,
             "test message",
             "test criteria",
@@ -116,7 +116,7 @@ class TestProcessMessage:
     async def test_process_message_calls_run_super_step(self, mock_sidekick):
         """Test that process_message calls run_super_step"""
         mock_sidekick_instance = MagicMock()
-        mock_sidekick_instance.run_super_step = MagicMock(return_value=["result"])
+        mock_sidekick_instance.run_super_step = AsyncMock(return_value=["result"])
         mock_sidekick.return_value = mock_sidekick_instance
         
         app = App()
@@ -137,13 +137,13 @@ class TestProcessMessage:
     async def test_process_message_with_history(self, mock_sidekick):
         """Test process_message with conversation history"""
         mock_sidekick_instance = MagicMock()
-        mock_sidekick_instance.run_super_step = MagicMock(return_value=["result1", "result2"])
+        mock_sidekick_instance.run_super_step = AsyncMock(return_value=["result1", "result2"])
         mock_sidekick.return_value = mock_sidekick_instance
         
         app = App()
         history = [{"role": "user", "content": "First message"}]
         
-        result, returned_sidekick = await app.process_message(
+        returned_sidekick, result = await app.process_message(
             mock_sidekick_instance,
             "Second message",
             "criteria",
@@ -157,11 +157,11 @@ class TestProcessMessage:
     async def test_process_message_returns_sidekick(self, mock_sidekick):
         """Test that process_message returns the sidekick instance"""
         mock_sidekick_instance = MagicMock()
-        mock_sidekick_instance.run_super_step = MagicMock(return_value=[])
+        mock_sidekick_instance.run_super_step = AsyncMock(return_value=[])
         mock_sidekick.return_value = mock_sidekick_instance
         
         app = App()
-        result, returned_sidekick = await app.process_message(
+        returned_sidekick, result = await app.process_message(
             mock_sidekick_instance,
             "test",
             "criteria",
@@ -178,30 +178,32 @@ class TestReset:
     @patch("src.app.Sidekick")
     async def test_reset(self, mock_sidekick):
         """Test reset method"""
-        new_mock_sidekick = AsyncMock()
+        new_mock_sidekick = MagicMock()
         new_mock_sidekick.setup = AsyncMock()
+        new_mock_sidekick.cleanup = MagicMock()
         mock_sidekick.return_value = new_mock_sidekick
         
         app = App()
-        message, criteria, chatbot, sidekick = await app.reset()
+        message, criteria, chatbot, sidekick = await app.reset(app.sidekick)
         
         assert message == ""
         assert criteria == ""
-        assert chatbot is None
+        assert chatbot == []
         assert sidekick == new_mock_sidekick
 
     @pytest.mark.asyncio
     @patch("src.app.Sidekick")
     async def test_reset_creates_new_sidekick(self, mock_sidekick):
         """Test that reset creates a new Sidekick instance"""
-        new_mock_sidekick = AsyncMock()
+        new_mock_sidekick = MagicMock()
         new_mock_sidekick.setup = AsyncMock()
+        new_mock_sidekick.cleanup = MagicMock()
         mock_sidekick.return_value = new_mock_sidekick
         
         app = App()
         old_sidekick = app.sidekick
         
-        message, criteria, chatbot, sidekick = await app.reset()
+        message, criteria, chatbot, sidekick = await app.reset(old_sidekick)
         
         # Should have called Sidekick() twice - once in __init__, once in reset
         assert mock_sidekick.call_count == 2
@@ -210,12 +212,13 @@ class TestReset:
     @patch("src.app.Sidekick")
     async def test_reset_calls_setup_on_new_sidekick(self, mock_sidekick):
         """Test that reset calls setup on the new Sidekick"""
-        new_mock_sidekick = AsyncMock()
+        new_mock_sidekick = MagicMock()
         new_mock_sidekick.setup = AsyncMock()
+        new_mock_sidekick.cleanup = MagicMock()
         mock_sidekick.return_value = new_mock_sidekick
         
         app = App()
-        await app.reset()
+        await app.reset(app.sidekick)
         
         # setup called once in original init, and once in reset
         # But we need to verify the last call is from reset
@@ -225,18 +228,19 @@ class TestReset:
     @patch("src.app.Sidekick")
     async def test_reset_returns_empty_strings(self, mock_sidekick):
         """Test that reset returns empty strings for message and criteria"""
-        new_mock_sidekick = AsyncMock()
+        new_mock_sidekick = MagicMock()
         new_mock_sidekick.setup = AsyncMock()
+        new_mock_sidekick.cleanup = MagicMock()
         mock_sidekick.return_value = new_mock_sidekick
         
         app = App()
-        message, criteria, chatbot, sidekick = await app.reset()
+        message, criteria, chatbot, sidekick = await app.reset(app.sidekick)
         
         assert isinstance(message, str)
         assert isinstance(criteria, str)
         assert message == ""
         assert criteria == ""
-        assert chatbot is None
+        assert chatbot == []
 
 
 class TestFreeResources:
@@ -369,13 +373,13 @@ class TestAppIntegration:
         """Test setup followed by process_message"""
         mock_sidekick_instance = AsyncMock()
         mock_sidekick_instance.setup = AsyncMock()
-        mock_sidekick_instance.run_super_step = MagicMock(return_value=["result"])
+        mock_sidekick_instance.run_super_step = AsyncMock(return_value=["result"])
         mock_sidekick.return_value = mock_sidekick_instance
         
         app = App()
         sidekick = await app.setup()
         
-        result, returned_sidekick = await app.process_message(
+        returned_sidekick, result = await app.process_message(
             sidekick,
             "test message",
             "test criteria",
@@ -389,18 +393,20 @@ class TestAppIntegration:
     @patch("src.app.Sidekick")
     async def test_reset_returns_new_sidekick(self, mock_sidekick):
         """Test that reset returns a fresh sidekick"""
-        initial_mock = AsyncMock()
+        initial_mock = MagicMock()
         initial_mock.setup = AsyncMock()
+        initial_mock.cleanup = MagicMock()
         
-        new_mock = AsyncMock()
+        new_mock = MagicMock()
         new_mock.setup = AsyncMock()
+        new_mock.cleanup = MagicMock()
         
         mock_sidekick.side_effect = [initial_mock, new_mock]
         
         app = App()
         initial_sidekick = app.sidekick
         
-        message, criteria, chatbot, new_sidekick = await app.reset()
+        message, criteria, chatbot, new_sidekick = await app.reset(initial_sidekick)
         
         # Verify they are different instances
         assert new_sidekick != initial_sidekick

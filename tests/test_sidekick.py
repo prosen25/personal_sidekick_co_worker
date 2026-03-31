@@ -6,6 +6,7 @@ import asyncio
 from pathlib import Path
 from unittest.mock import patch, MagicMock, AsyncMock, call
 from typing import Any, Dict
+from langchain_core.messages import HumanMessage
 
 # Add the parent directory to sys.path so we can import src
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -34,7 +35,7 @@ class TestSidekickInit:
         
         assert sidekick.worker == mock_worker_instance
         assert sidekick.evaluator == mock_evaluator_instance
-        assert sidekick.tools is None
+        assert sidekick.tools == []
         assert sidekick.async_browser is None
         assert sidekick.playwright is None
         assert sidekick.memory == mock_memory_instance
@@ -134,7 +135,7 @@ class TestBuildGraph:
         mock_builder.compile.return_value = MagicMock()
         
         sidekick = Sidekick()
-        sidekick.tools = []
+        sidekick.tools = [MagicMock()]
         
         await sidekick.build_graph()
         
@@ -161,7 +162,7 @@ class TestBuildGraph:
         mock_builder.compile.return_value = MagicMock()
         
         sidekick = Sidekick()
-        sidekick.tools = []
+        sidekick.tools = [MagicMock()]
         
         await sidekick.build_graph()
         
@@ -186,7 +187,7 @@ class TestSetup:
         sidekick = Sidekick()
         
         # Verify initial state
-        assert sidekick.tools is None
+        assert sidekick.tools == []
         assert sidekick.async_browser is None
         assert sidekick.playwright is None
         assert sidekick.graph is None
@@ -288,8 +289,12 @@ class TestRunSuperStep:
         
         # Verify state structure
         assert invoked_state is not None
-        assert invoked_state["messages"] == "test message"
+        assert isinstance(invoked_state["messages"], list)
+        assert len(invoked_state["messages"]) == 1
+        assert isinstance(invoked_state["messages"][0], HumanMessage)
+        assert invoked_state["messages"][0].content == "test message"
         assert invoked_state["success_criteria"] == "test criteria"
+        assert invoked_state["feedback_on_work"] is None
         assert invoked_state["success_criteria_met"] is False
         assert invoked_state["user_input_needed"] is False
 
@@ -402,8 +407,10 @@ class TestCleanup:
         
         sidekick = Sidekick()
         
-        mock_browser = AsyncMock()
-        mock_pw = AsyncMock()
+        mock_browser = MagicMock()
+        mock_browser.close = MagicMock(return_value=MagicMock())
+        mock_pw = MagicMock()
+        mock_pw.stop = MagicMock(return_value=MagicMock())
         
         sidekick.async_browser = mock_browser
         sidekick.playwright = mock_pw
@@ -430,8 +437,10 @@ class TestCleanup:
         
         sidekick = Sidekick()
         
-        mock_browser = AsyncMock()
-        mock_pw = AsyncMock()
+        mock_browser = MagicMock()
+        mock_browser.close = MagicMock(return_value=MagicMock())
+        mock_pw = MagicMock()
+        mock_pw.stop = MagicMock(return_value=MagicMock())
         
         sidekick.async_browser = mock_browser
         sidekick.playwright = mock_pw
@@ -456,7 +465,8 @@ class TestCleanup:
         
         sidekick = Sidekick()
         
-        mock_browser = AsyncMock()
+        mock_browser = MagicMock()
+        mock_browser.close = MagicMock(return_value=MagicMock())
         
         sidekick.async_browser = mock_browser
         sidekick.playwright = None
@@ -481,8 +491,10 @@ class TestCleanup:
         
         sidekick = Sidekick()
         
-        mock_browser = AsyncMock()
-        mock_pw = AsyncMock()
+        mock_browser = MagicMock()
+        mock_browser.close = MagicMock(return_value=MagicMock())
+        mock_pw = MagicMock()
+        mock_pw.stop = MagicMock(return_value=MagicMock())
         
         sidekick.async_browser = mock_browser
         sidekick.playwright = mock_pw
@@ -510,14 +522,14 @@ class TestSidekickIntegration:
         mock_evaluator.return_value = MagicMock()
         mock_memory_saver.return_value = MagicMock()
         
-        with patch("src.sidekick.StateGraph") as mock_state_graph:
+        with patch("src.sidekick.StateGraph") as mock_state_graph, patch("src.sidekick.ToolNode"):
             mock_builder = MagicMock()
             mock_graph = MagicMock()
             mock_state_graph.return_value = mock_builder
             mock_builder.compile.return_value = mock_graph
             
             sidekick = Sidekick()
-            sidekick.tools = []
+            sidekick.tools = [MagicMock()]
             
             await sidekick.build_graph()
             

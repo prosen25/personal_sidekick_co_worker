@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict, List
 
 from dotenv import load_dotenv
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
@@ -11,7 +11,7 @@ from .state import State
 
 load_dotenv(override=True)
 
-EVALUATOR_MODEL = os.getenv("EVALUATOR_MODEL")
+EVALUATOR_MODEL = os.getenv("EVALUATOR_MODEL", "gpt-4o-mini")
 
 class EvaluatorOutput(BaseModel):
     feedback: str = Field(description="Feedback on assistant's response")
@@ -23,6 +23,8 @@ class Evaluator:
         self.evaluator_llm_with_output = None
 
     async def setup(self):
+        if not EVALUATOR_MODEL:
+            raise ValueError("EVALUATOR_MODEL must be set before setup")
         self.evaluator_llm_with_output = ChatOpenAI(model=EVALUATOR_MODEL).with_structured_output(schema=EvaluatorOutput)
 
     def format_conversation(self, messages: List[Any]) -> str:
@@ -30,13 +32,32 @@ class Evaluator:
         for message in messages:
             if isinstance(message, HumanMessage):
                 conversation += f"User: {message.content}\n"
-            if isinstance(message, AIMessage):
+            elif isinstance(message, AIMessage):
                 text = message.content or "[Tool use]"
                 conversation += f"Assistant: {text}\n"
+            elif isinstance(message, ToolMessage):
+                conversation += f"Tool: {message.content}\n"
+            elif isinstance(message, SystemMessage):
+                conversation += f"System: {message.content}\n"
+            else:
+                content = getattr(message, "content", str(message))
+                conversation += f"Other: {content}\n"
 
         return conversation
 
     def evaluator(self, state: State) -> Dict[str, Any]:
+        if self.evaluator_llm_with_output is None:
+            raise RuntimeError("Evaluator is not initialized. Call setup() before invoking evaluator().")
+
+        if not isinstance(state, dict):
+            raise TypeError("state must be a dictionary-like object")
+
+        if "success_criteria" not in state or "messages" not in state:
+            raise ValueError("state must include 'success_criteria' and 'messages'")
+
+        if not state["messages"]:
+            raise ValueError("state['messages'] must not be empty")
+
         system_message = """You are an evaluator that determines if a task has been completed successfully by an Assistant.
 Assess the Assistant's last response based on the given criteria. Respond with your feedback, and with your decision on whether the success criteria has been met,
 and whether more input is needed from the user."""
@@ -50,7 +71,8 @@ The success criteria for this assignment is:
 {state["success_criteria"]}
 
 And the final response from the Assistant that you are evaluating is:
-{state["messages"][-1].content}Respond with your feedback, and decide if the success criteria is met by this response.
+{state["messages"][-1].content}
+Respond with your feedback, and decide if the success criteria is met by this response.
 Also, decide if more user input is required, either because the assistant has a question, needs clarification, or seems to be stuck and unable to answer without help.
 
 The Assistant has access to a tool to write files. If the Assistant says they have written a file, then you can assume they have done so.

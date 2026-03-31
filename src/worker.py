@@ -12,7 +12,7 @@ from .state import State
 
 load_dotenv(override=True)
 
-WORKER_MODEL = os.getenv("WORKER_MODEL", "gpt-4o-preview")
+WORKER_MODEL = os.getenv("WORKER_MODEL", "gpt-4o-mini")
 
 class Worker:
 
@@ -23,7 +23,10 @@ class Worker:
         if not tools:
             raise ValueError("At least one tool is required for worker setup")
 
-        self.worker_llm_with_tools = ChatOpenAI(model=WORKER_MODEL).bind_tools(tools=tools)
+        try:
+            self.worker_llm_with_tools = ChatOpenAI(model=WORKER_MODEL).bind_tools(tools=tools)
+        except Exception as e:
+            print(f"Failed to create llm model instance of {WORKER_MODEL}: {e}")
 
     def worker(self, state: State) -> Dict[str, Any]:
         if self.worker_llm_with_tools is None:

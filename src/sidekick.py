@@ -1,10 +1,12 @@
 import asyncio
 import uuid
+from typing import Any
 
 from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage
 from langgraph.graph import END, START, StateGraph
-from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.prebuilt import ToolNode
 
 from .evaluator import Evaluator
 from .sidekick_tools import other_tools, playwright_tools
@@ -18,7 +20,7 @@ class Sidekick:
     def __init__(self):
         self.worker = Worker()
         self.evaluator = Evaluator()
-        self.tools = None
+        self.tools = []
         self.async_browser = None
         self.playwright = None
         self.memory = MemorySaver()
@@ -26,6 +28,9 @@ class Sidekick:
         self.sidekick_id = str(uuid.uuid4())
 
     async def build_graph(self):
+        if not self.tools:
+            raise RuntimeError("Sidekick tools are not initialized. Call setup() first.")
+
         # Set up graph builder
         graph_builder = StateGraph(State)
 
@@ -51,21 +56,43 @@ class Sidekick:
         await self.build_graph()
 
     async def run_super_step(self, message, success_criteria, history):
+        if self.graph is None:
+            raise RuntimeError("Sidekick graph is not initialized. Call setup() before run_super_step().")
+
+        if not isinstance(message, str) or not message.strip():
+            raise ValueError("message must be a non-empty string")
+
+        if not isinstance(success_criteria, str) or not success_criteria.strip():
+            raise ValueError("success_criteria must be a non-empty string")
+
+        history = history or []
+
         config = {"configurable": {"thread_id": self.sidekick_id}}
 
         state = {
-            "messages": message,
+            "messages": [HumanMessage(content=message)],
             "success_criteria": success_criteria,
+            "feedback_on_work": None,
             "success_criteria_met": False,
             "user_input_needed": False
         }
 
         result = await self.graph.ainvoke(input=state, config=config)
+        messages = result.get("messages", [])
+        if len(messages) < 2:
+            raise RuntimeError("Unexpected graph result: expected assistant reply and evaluator feedback in messages.")
+
         user = {"role": "user", "content": message}
-        reply = {"role": "assistant", "content": result["messages"][-2].content}
-        feedback = {"role": "assistant", "content": result["messages"][-1].content}
+        reply = {"role": "assistant", "content": self._extract_content(messages[-2])}
+        feedback = {"role": "assistant", "content": self._extract_content(messages[-1])}
 
         return history + [user, reply, feedback]
+
+    @staticmethod
+    def _extract_content(message: Any) -> str:
+        if isinstance(message, dict):
+            return str(message.get("content", ""))
+        return str(getattr(message, "content", ""))
     
     def cleanup(self):
         if self.async_browser:
@@ -74,7 +101,7 @@ class Sidekick:
                 loop.create_task(self.async_browser.close())
                 if self.playwright:
                     loop.create_task(self.playwright.stop())
-            except:
+            except RuntimeError:
                 # If no loop is running, do a direct run
                 asyncio.run(self.async_browser.close())
                 if self.playwright:
